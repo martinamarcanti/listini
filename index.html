@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Listini</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2430; --muted: #6b7686; --line: #e3e7ee;
+    --accent: #1f5fbf; --accent-soft: #e8f0fc; --warn: #b4531a; --warn-soft: #fcefe3; --ok: #1d7a4b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #14171c; --panel: #1c2027; --text: #e6e9ef; --muted: #98a2b3; --line: #2c323c;
+            --accent: #6aa3f5; --accent-soft: #1f2a3d; --warn: #f0a46b; --warn-soft: #33261a; --ok: #62c28e; }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  button, input, select { font: inherit; color: inherit; }
+  .hidden { display: none !important; }
+
+  /* Login */
+  #login { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 28px; width: 100%; max-width: 360px; }
+  .card h1 { margin: 0 0 4px; font-size: 20px; }
+  .card p { margin: 0 0 18px; color: var(--muted); }
+  label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 4px; }
+  input[type=text], input[type=email], input[type=password], input[type=search], select {
+    width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  .btn { padding: 9px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); cursor: pointer; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; width: 100%; margin-top: 18px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .err { color: #c0392b; margin-top: 12px; min-height: 18px; }
+
+  /* App */
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+  header h1 { font-size: 16px; margin: 0; flex: 1; }
+  .who { color: var(--muted); font-size: 13px; }
+  .role { background: var(--accent-soft); color: var(--accent); padding: 2px 8px; border-radius: 999px; font-size: 12px; margin-left: 6px; }
+  main { padding: 16px 20px 40px; max-width: 1400px; margin: 0 auto; }
+  .filters { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 10px; align-items: end; margin-bottom: 10px; }
+  .checks { display: flex; gap: 16px; margin: 4px 0 12px; color: var(--muted); }
+  .checks label { display: flex; align-items: center; gap: 6px; margin: 0; font-size: 13px; cursor: pointer; }
+  .tablewrap { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td.desc { white-space: normal; min-width: 260px; max-width: 460px; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; background: var(--panel); }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: var(--accent-soft); }
+  tr.obs td { color: var(--muted); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .badge { font-size: 11px; padding: 1px 7px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); margin-left: 6px; }
+  .pager { display: flex; align-items: center; gap: 10px; justify-content: flex-end; margin-top: 12px; color: var(--muted); }
+  .empty { padding: 32px; text-align: center; color: var(--muted); }
+
+  /* Scheda articolo */
+  #drawer { position: fixed; inset: 0 0 0 auto; width: min(560px, 100%); background: var(--panel); border-left: 1px solid var(--line);
+    box-shadow: -8px 0 24px rgba(0,0,0,.12); overflow-y: auto; z-index: 10; padding: 20px 22px 40px; }
+  #veil { position: fixed; inset: 0; background: rgba(0,0,0,.25); z-index: 9; }
+  #drawer h2 { margin: 0 28px 2px 0; font-size: 18px; }
+  #drawer .sub { color: var(--muted); margin-bottom: 14px; }
+  #closeDrawer { position: absolute; right: 14px; top: 12px; }
+  .sec { margin-top: 18px; }
+  .sec h3 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  dl { display: grid; grid-template-columns: 170px 1fr; gap: 4px 12px; margin: 0; }
+  dt { color: var(--muted); } dd { margin: 0; word-break: break-word; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { background: var(--accent-soft); color: var(--accent); padding: 2px 9px; border-radius: 999px; font-size: 12px; }
+  .hist td, .hist th { padding: 5px 8px; font-size: 13px; }
+  @media (max-width: 760px) { .filters { grid-template-columns: 1fr 1fr; } dl { grid-template-columns: 1fr; } dt { margin-top: 6px; } }
+</style>
+</head>
+<body>
+
+<section id="login">
+  <form class="card" id="loginForm">
+    <h1>Listini</h1>
+    <p>Accedi con le tue credenziali.</p>
+    <label for="email">Email</label>
+    <input id="email" type="email" autocomplete="username" required>
+    <label for="password">Password</label>
+    <input id="password" type="password" autocomplete="current-password" required>
+    <button class="btn primary" id="loginBtn" type="submit">Accedi</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</section>
+
+<section id="app" class="hidden">
+  <header>
+    <h1>Listini accessori</h1>
+    <span class="who"><span id="whoEmail"></span><span class="role" id="whoRole"></span></span>
+    <button class="btn" id="logoutBtn">Esci</button>
+  </header>
+  <main>
+    <div class="filters">
+      <div><label for="q">Cerca per codice o descrizione</label><input id="q" type="search" placeholder="es. cerniera, EA-0442, cremonese..."></div>
+      <div><label for="fFam">Famiglia</label><select id="fFam"><option value="">Tutte</option></select></div>
+      <div><label for="fForn">Fornitore</label><select id="fForn"><option value="">Tutti</option></select></div>
+      <div><button class="btn" id="reset">Azzera filtri</button></div>
+    </div>
+    <div class="checks">
+      <label><input type="checkbox" id="cObs"> Mostra anche gli obsoleti</label>
+      <label><input type="checkbox" id="cNoPrice"> Solo articoli senza prezzo di acquisto</label>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead><tr>
+          <th>Codice</th><th>Descrizione</th><th>Famiglia</th><th>Fornitore</th><th>U.M.</th>
+          <th class="num">Acquisto (€)</th><th class="num">Vendita (€)</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="empty hidden" id="empty">Nessun articolo trovato.</div>
+    </div>
+    <div class="pager">
+      <span id="count"></span>
+      <button class="btn" id="prev">‹ Precedente</button>
+      <button class="btn" id="next">Successiva ›</button>
+    </div>
+  </main>
+</section>
+
+<div id="veil" class="hidden"></div>
+<aside id="drawer" class="hidden">
+  <button class="btn" id="closeDrawer">✕</button>
+  <div id="drawerBody"></div>
+</aside>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+const SUPABASE_URL = 'https://krsijkhyewrdyrhrjtva.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_VJxmkx41yElltIHnr4YgPw_kXgQ8IZw';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const PAGE = 50;
+const $ = (id) => document.getElementById(id);
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const eur = (v) => v === null || v === undefined ? '' : Number(v).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const num = (v, d = 4) => v === null || v === undefined ? '' : Number(v).toLocaleString('it-IT', { maximumFractionDigits: d });
+const pct = (v) => v === null || v === undefined ? '' : (Number(v) * 100).toLocaleString('it-IT', { maximumFractionDigits: 3 }) + ' %';
+const dt = (v) => v ? new Date(v).toLocaleDateString('it-IT') : '';
+
+let page = 0, total = 0, timer = null, seq = 0;
+
+/* ---------- accesso ---------- */
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('loginErr').textContent = ''; $('loginBtn').disabled = true;
+  const { error } = await sb.auth.signInWithPassword({ email: $('email').value.trim(), password: $('password').value });
+  $('loginBtn').disabled = false;
+  if (error) { $('loginErr').textContent = 'Email o password non corretti.'; return; }
+  $('password').value = '';
+  start();
+});
+$('logoutBtn').addEventListener('click', async () => { await sb.auth.signOut(); location.reload(); });
+
+async function start() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { $('login').classList.remove('hidden'); $('app').classList.add('hidden'); return; }
+  $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  $('whoEmail').textContent = session.user.email;
+  const { data: prof } = await sb.from('profili').select('ruolo').eq('user_id', session.user.id).maybeSingle();
+  $('whoRole').textContent = prof?.ruolo === 'admin' ? 'Admin' : 'Sola lettura';
+  await loadLists();
+  await load();
+}
+
+async function loadLists() {
+  const [fam, forn] = await Promise.all([
+    sb.from('famiglie').select('id,nome').order('nome'),
+    sb.from('fornitori').select('id,nome').order('nome')
+  ]);
+  $('fFam').innerHTML = '<option value="">Tutte</option>' + (fam.data || []).map(r => `<option value="${esc(r.nome)}">${esc(r.nome)}</option>`).join('');
+  $('fForn').innerHTML = '<option value="">Tutti</option>' + (forn.data || []).map(r => `<option value="${esc(r.nome)}">${esc(r.nome)}</option>`).join('');
+}
+
+/* ---------- elenco ---------- */
+async function load() {
+  const my = ++seq;
+  let q = sb.from('v_articoli')
+    .select('id,codice,descrizione,famiglia,fornitore,unita_misura,prezzo_acquisto,prezzo_vendita,obsoleto', { count: 'exact' })
+    .order('codice');
+  const text = $('q').value.trim().replace(/[,()%*\\]/g, ' ');
+  if (text) q = q.or(`codice.ilike.%${text}%,descrizione.ilike.%${text}%`);
+  if ($('fFam').value) q = q.eq('famiglia', $('fFam').value);
+  if ($('fForn').value) q = q.eq('fornitore', $('fForn').value);
+  if (!$('cObs').checked) q = q.eq('obsoleto', false);
+  if ($('cNoPrice').checked) q = q.is('prezzo_acquisto', null);
+  q = q.range(page * PAGE, page * PAGE + PAGE - 1);
+  const { data, count, error } = await q;
+  if (my !== seq) return;
+  if (error) { $('rows').innerHTML = ''; $('empty').textContent = 'Errore nel caricamento: ' + error.message; $('empty').classList.remove('hidden'); return; }
+  total = count || 0;
+  $('empty').textContent = 'Nessun articolo trovato.';
+  $('empty').classList.toggle('hidden', total > 0);
+  $('rows').innerHTML = (data || []).map(r => `
+    <tr data-id="${r.id}" class="${r.obsoleto ? 'obs' : ''}">
+      <td>${esc(r.codice)}${r.obsoleto ? '<span class="badge">obsoleto</span>' : ''}</td>
+      <td class="desc">${esc(r.descrizione)}</td>
+      <td>${esc(r.famiglia)}</td><td>${esc(r.fornitore)}</td><td>${esc(r.unita_misura)}</td>
+      <td class="num">${eur(r.prezzo_acquisto)}</td><td class="num">${eur(r.prezzo_vendita)}</td>
+    </tr>`).join('');
+  const from = total ? page * PAGE + 1 : 0, to = Math.min(total, (page + 1) * PAGE);
+  $('count').textContent = `${from}–${to} di ${total.toLocaleString('it-IT')} articoli`;
+  $('prev').disabled = page === 0;
+  $('next').disabled = to >= total;
+}
+
+function refilter() { page = 0; load(); }
+$('q').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(refilter, 300); });
+['fFam', 'fForn', 'cObs', 'cNoPrice'].forEach(id => $(id).addEventListener('change', refilter));
+$('reset').addEventListener('click', () => { $('q').value = ''; $('fFam').value = ''; $('fForn').value = ''; $('cObs').checked = false; $('cNoPrice').checked = false; refilter(); });
+$('prev').addEventListener('click', () => { if (page > 0) { page--; load(); } });
+$('next').addEventListener('click', () => { page++; load(); });
+$('rows').addEventListener('click', (e) => { const tr = e.target.closest('tr'); if (tr) openArticle(tr.dataset.id); });
+
+/* ---------- scheda articolo ---------- */
+function dl(pairs) {
+  const rows = pairs.filter(([, v]) => v !== '' && v !== null && v !== undefined);
+  return rows.length ? '<dl>' + rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('') + '</dl>' : '<span class="who">—</span>';
+}
+
+async function openArticle(id) {
+  $('veil').classList.remove('hidden'); $('drawer').classList.remove('hidden');
+  $('drawerBody').innerHTML = '<p class="who">Caricamento…</p>';
+  const [art, hist, sist] = await Promise.all([
+    sb.from('v_articoli').select('*').eq('id', id).single(),
+    sb.from('storico_prezzi').select('data_modifica,campo,valore_precedente,valore_nuovo').eq('articolo_id', id).order('data_modifica', { ascending: false }).limit(50),
+    sb.from('articoli_sistemi').select('sistemi(nome,gruppo)').eq('articolo_id', id)
+  ]);
+  if (art.error) { $('drawerBody').innerHTML = '<p class="err">Errore: ' + esc(art.error.message) + '</p>'; return; }
+  const a = art.data;
+  const sistemi = (sist.data || []).map(x => x.sistemi).filter(Boolean);
+  const chips = (g) => sistemi.filter(s => s.gruppo === g).map(s => `<span class="chip">${esc(s.nome)}</span>`).join('');
+  const h = hist.data || [];
+  const personalizzato = a.ricarico_personalizzato !== null && a.ricarico_personalizzato !== undefined;
+  $('drawerBody').innerHTML = `
+    <h2>${esc(a.codice)}${a.obsoleto ? '<span class="badge">obsoleto</span>' : ''}</h2>
+    <div class="sub">${esc(a.descrizione)}</div>
+    <div class="sec"><h3>Identificazione</h3>${dl([
+      ['Codice padre', a.codice_padre], ['Famiglia', a.famiglia], ['Finitura', a.finitura], ['Colore (preventivazione)', a.colore],
+      ['Hardware type', a.tipo_hardware], ['Materiale base', a.materiale_base], ['Descrizione (EN)', a.descrizione_en]])}</div>
+    <div class="sec"><h3>Unità e lotti</h3>${dl([
+      ['Unità di misura', a.unita_misura], ['Lotto economico', num(a.lotto_economico)], ['Lotto minimo di vendita', num(a.lotto_minimo_vendita)],
+      ['Unità per confezione', num(a.unita_per_confezione)], ['Lunghezza barra', num(a.lunghezza_barra)]])}</div>
+    <div class="sec"><h3>Acquisto</h3>${dl([
+      ['Fornitore', a.fornitore], ['Codice fornitore', a.codice_fornitore], ['Codice articolo fornitore', a.codice_articolo_fornitore],
+      ['Origine del prezzo', ({listino_fornitore:'Listino fornitore', netto_dedicato:'Netto dedicato', manuale:'Manuale'})[a.origine_prezzo] || ''],
+      ['Prezzo di acquisto', a.prezzo_acquisto === null ? 'non presente' : eur(a.prezzo_acquisto) + ' €'],
+      ['Sconti a cascata', [a.sconto_base, a.sconto_extra1, a.sconto_extra2, a.sconto_extra3].filter(x => Number(x) > 0).map(pct).join(' + ')],
+      ['Sconto unico', Number(a.sconto_unico) > 0 ? pct(a.sconto_unico) : ''],
+      ['Variazione prezzo', Number(a.variazione_prezzo) !== 0 ? pct(a.variazione_prezzo) : ''],
+      ['Ultima variazione prezzo', dt(a.data_ultima_variazione)]])}</div>
+    <div class="sec"><h3>Vendita</h3>${dl([
+      ['Prezzo di vendita', a.prezzo_vendita === null ? 'non presente' : eur(a.prezzo_vendita) + ' €'],
+      ['Calcolo standard', a.prezzo_calcolato === null ? '' : eur(a.prezzo_calcolato) + ' €'],
+      ['Coefficiente effettivo', num(a.coefficiente_effettivo, 3)],
+      ['Ricarico personalizzato', personalizzato ? pct(a.ricarico_personalizzato) : ''],
+      ['Attrezzatura', a.attrezzatura], ['Ammortamento', a.ammortamento === null ? '' : eur(a.ammortamento) + ' €'],
+      ['Ricarico su ammortamento', Number(a.ricarico_ammortamento) > 0 ? pct(a.ricarico_ammortamento) : '']])}</div>
+    <div class="sec"><h3>Note</h3>${dl([['Note', a.note], ['Note acquisto', a.note_acquisto]])}</div>
+    <div class="sec"><h3>Categorie</h3><div class="chips">${chips('categoria') || '<span class="who">—</span>'}</div></div>
+    <div class="sec"><h3>Sotto-famiglie compatibili</h3><div class="chips">${chips('sottofamiglia') || '<span class="who">—</span>'}</div></div>
+    <div class="sec"><h3>Storico prezzi</h3>${h.length ? `<table class="hist"><thead><tr><th>Data</th><th>Prezzo</th><th class="num">Prima</th><th class="num">Dopo</th></tr></thead><tbody>${
+      h.map(x => `<tr><td>${dt(x.data_modifica)}</td><td>${x.campo === 'prezzo_acquisto' ? 'Acquisto' : 'Vendita'}</td><td class="num">${eur(x.valore_precedente)}</td><td class="num">${eur(x.valore_nuovo)}</td></tr>`).join('')
+    }</tbody></table>` : '<span class="who">Nessuna variazione registrata.</span>'}</div>`;
+}
+function closeDrawer() { $('veil').classList.add('hidden'); $('drawer').classList.add('hidden'); }
+$('closeDrawer').addEventListener('click', closeDrawer);
+$('veil').addEventListener('click', closeDrawer);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+
+start();
+</script>
+</body>
+</html>
