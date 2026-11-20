@@ -13,6 +13,12 @@
     :root { --bg: #14171c; --panel: #1c2027; --text: #e6e9ef; --muted: #98a2b3; --line: #2c323c;
             --accent: #6aa3f5; --accent-soft: #1f2a3d; --warn: #f0a46b; --warn-soft: #33261a; --ok: #62c28e; }
   }
+  :root { --k-cod: #D9D9D9; --k-acq: #F2DCDB; --k-lot: #E6B9B8; --k-for: #B7DEE8; --k-caf: #CCC1DA; --k-sco: #DDD9C3; }
+  @media (prefers-color-scheme: dark) {
+    :root { --k-cod: rgba(217,217,217,.16); --k-acq: rgba(242,220,219,.16); --k-lot: rgba(230,185,184,.20); --k-for: rgba(183,222,232,.18); --k-caf: rgba(204,193,218,.20); --k-sco: rgba(221,217,195,.18); }
+  }
+  .k-cod { background: var(--k-cod) !important; } .k-acq { background: var(--k-acq) !important; } .k-lot { background: var(--k-lot) !important; }
+  .k-for { background: var(--k-for) !important; } .k-caf { background: var(--k-caf) !important; } .k-sco { background: var(--k-sco) !important; }
   * { box-sizing: border-box; }
   html, body { margin: 0; background: var(--bg); color: var(--text);
     font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -71,6 +77,11 @@
   .sec h3 { margin: 0 0 6px; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
   dl { display: grid; grid-template-columns: 170px 1fr; gap: 4px 12px; margin: 0; }
   dt { color: var(--muted); } dd { margin: 0; word-break: break-word; }
+  .editbox { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
+  .editbox h4 { margin: 10px 0 4px; font-size: 12px; color: var(--muted); }
+  .editbox label.ck { display: inline-flex; align-items: center; gap: 6px; margin: 3px 14px 3px 0; font-size: 13px; color: var(--text); cursor: pointer; }
+  .row { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+  .link { background: none; border: none; color: var(--accent); cursor: pointer; padding: 0 0 0 8px; font-size: 12px; }
   .chips { display: flex; flex-wrap: wrap; gap: 6px; }
   .chip { background: var(--accent-soft); color: var(--accent); padding: 2px 9px; border-radius: 999px; font-size: 12px; }
   .hist td, .hist th { padding: 5px 8px; font-size: 13px; }
@@ -100,7 +111,7 @@
   </header>
   <main>
     <div class="filters">
-      <div><label for="q">Cerca per codice o descrizione</label><input id="q" type="search" placeholder="es. cerniera, EA-0442, cremonese..."></div>
+      <div><label for="q">Cerca per codice, codice articolo fornitore o descrizione</label><input id="q" type="search" placeholder="codice, codice fornitore o descrizione: es. cerniera, EA-0442..."></div>
       <div><button class="btn" id="reset">Azzera filtri</button></div>
     </div>
     <div class="checks">
@@ -167,42 +178,49 @@ async function start() {
   $('login').classList.add('hidden'); $('app').classList.remove('hidden');
   $('whoEmail').textContent = session.user.email;
   const { data: prof } = await sb.from('profili').select('ruolo').eq('user_id', session.user.id).maybeSingle();
-  $('whoRole').textContent = prof?.ruolo === 'admin' ? 'Admin' : 'Sola lettura';
+  isAdmin = prof?.ruolo === 'admin';
+  $('whoRole').textContent = isAdmin ? 'Admin' : 'Sola lettura';
   await loadLists();
   await load();
 }
 
 const COLS = [
-  { k: 'codice', label: 'Codice', w: 150, filter: 'text' },
-  { k: 'descrizione', label: 'Descrizione', w: 400, filter: 'text' },
-  { k: 'famiglia', label: 'Famiglia', w: 120 },
-  { k: 'fornitore', label: 'Fornitore', w: 160, filter: 'forn' },
-  { k: 'unita_misura', label: 'U.M.', w: 90, filter: 'um' },
-  { k: 'prezzo_acquisto', label: 'Acquisto (€)', w: 120, num: true },
-  { k: 'sconto_unico', label: 'Sconto', w: 100, num: true },
+  { k: 'codice', label: 'Codice', w: 150, filter: 'text', cls: 'k-cod' },
+  { k: 'descrizione', label: 'Descrizione', w: 380, filter: 'text' },
+  { k: 'famiglia', label: 'Famiglia', w: 130, filter: 'fam' },
+  { k: 'fornitore', label: 'Fornitore', w: 160, filter: 'forn', cls: 'k-for' },
+  { k: 'codice_articolo_fornitore', label: 'Cod. art. fornitore', w: 160, filter: 'text', cls: 'k-caf' },
+  { k: 'unita_misura', label: 'U.M.', w: 80, filter: 'um' },
+  { k: 'lotto_economico', label: 'Lotto economico', w: 120, num: true },
+  { k: 'lotto_minimo_vendita', label: 'Lotto minimo', w: 110, num: true, cls: 'k-lot' },
+  { k: 'unita_per_confezione', label: 'Confezione', w: 110, num: true },
+  { k: 'prezzo_acquisto', label: 'Acquisto (€)', w: 120, num: true, cls: 'k-acq' },
+  { k: 'sconto_unico', label: 'Sconto', w: 100, num: true, cls: 'k-sco' },
   { k: 'prezzo_vendita', label: 'Vendita (€)', w: 120, num: true }
 ];
 const UM = ['pz', 'mt', 'cp', 'cf', 'br'];
 const colF = {};              // filtri di colonna
 let sort = { k: 'codice', asc: true };
 let widths = COLS.map(c => c.w);
-try { const w = JSON.parse(localStorage.getItem('listini_w') || 'null'); if (Array.isArray(w) && w.length === COLS.length) widths = w.map((x, i) => Number(x) > 40 ? Number(x) : COLS[i].w); } catch (e) {}
-let fornitori = [];
+try { const w = JSON.parse(localStorage.getItem('listini_w2') || 'null'); if (Array.isArray(w) && w.length === COLS.length) widths = w.map((x, i) => Number(x) > 40 ? Number(x) : COLS[i].w); } catch (e) {}
+let fornitori = [], famiglie = [], isAdmin = false, sistemiAll = null;
 
 function applyWidths() {
   $('cols').innerHTML = widths.map(w => `<col style="width:${w}px">`).join('');
   $('tbl').style.width = widths.reduce((a, b) => a + b, 0) + 'px';
 }
-function saveWidths() { try { localStorage.setItem('listini_w', JSON.stringify(widths)); } catch (e) {} }
+function saveWidths() { try { localStorage.setItem('listini_w2', JSON.stringify(widths)); } catch (e) {} }
 
 function buildHead() {
   const arrow = (c) => sort.k === c.k ? `<span class="arrow">${sort.asc ? '▲' : '▼'}</span>` : '';
-  const h1 = COLS.map((c, i) => `<th class="sortable ${c.num ? 'num' : ''}" data-i="${i}"><span class="lbl">${esc(c.label)}</span>${arrow(c)}<span class="rs" data-i="${i}"></span></th>`).join('');
+  const h1 = COLS.map((c, i) => `<th class="sortable ${c.num ? 'num ' : ''}${c.cls || ''}" data-i="${i}"><span class="lbl">${esc(c.label)}</span>${arrow(c)}<span class="rs" data-i="${i}"></span></th>`).join('');
   const h2 = COLS.map(c => {
-    if (c.filter === 'text') return `<th><input type="search" data-f="${c.k}" value="${esc(colF[c.k] || '')}" placeholder="filtra…"></th>`;
-    if (c.filter === 'forn') return `<th><select data-f="${c.k}"><option value="">Tutti</option>${fornitori.map(n => `<option value="${esc(n)}" ${colF[c.k] === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></th>`;
-    if (c.filter === 'um') return `<th><select data-f="${c.k}"><option value="">Tutte</option>${UM.map(n => `<option value="${n}" ${colF[c.k] === n ? 'selected' : ''}>${n}</option>`).join('')}</select></th>`;
-    return '<th></th>';
+    const k = c.cls ? ` class="${c.cls}"` : '';
+    if (c.filter === 'text') return `<th${k}><input type="search" data-f="${c.k}" value="${esc(colF[c.k] || '')}" placeholder="filtra…"></th>`;
+    if (c.filter === 'fam') return `<th${k}><select data-f="${c.k}"><option value="">Tutte</option>${famiglie.map(n => `<option value="${esc(n)}" ${colF[c.k] === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></th>`;
+    if (c.filter === 'forn') return `<th${k}><select data-f="${c.k}"><option value="">Tutti</option>${fornitori.map(n => `<option value="${esc(n)}" ${colF[c.k] === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></th>`;
+    if (c.filter === 'um') return `<th${k}><select data-f="${c.k}"><option value="">Tutte</option>${UM.map(n => `<option value="${n}" ${colF[c.k] === n ? 'selected' : ''}>${n}</option>`).join('')}</select></th>`;
+    return `<th${k}></th>`;
   }).join('');
   $('thead').innerHTML = `<tr>${h1}</tr><tr class="frow">${h2}</tr>`;
 }
@@ -233,8 +251,9 @@ $('thead').addEventListener('change', (e) => {
 });
 
 async function loadLists() {
-  const forn = await sb.from('fornitori').select('nome').order('nome');
+  const [forn, fam] = await Promise.all([sb.from('fornitori').select('nome').order('nome'), sb.from('famiglie').select('nome').order('nome')]);
   fornitori = (forn.data || []).map(r => r.nome);
+  famiglie = (fam.data || []).map(r => r.nome);
   buildHead();
 }
 
@@ -242,13 +261,14 @@ async function loadLists() {
 async function load() {
   const my = ++seq;
   let q = sb.from('v_articoli')
-    .select('id,codice,descrizione,famiglia,fornitore,unita_misura,prezzo_acquisto,sconto_unico,prezzo_vendita,obsoleto', { count: 'exact' })
+    .select('id,codice,descrizione,famiglia,fornitore,codice_articolo_fornitore,unita_misura,lotto_economico,lotto_minimo_vendita,unita_per_confezione,prezzo_acquisto,sconto_unico,prezzo_vendita,obsoleto', { count: 'exact' })
     .order(sort.k, { ascending: sort.asc, nullsFirst: false });
   if (sort.k !== 'codice') q = q.order('codice');
   const text = $('q').value.trim().replace(/[,()%*\\]/g, ' ');
-  if (text) q = q.or(`codice.ilike.%${text}%,descrizione.ilike.%${text}%`);
-  ['codice', 'descrizione'].forEach(k => { const v = (colF[k] || '').trim().replace(/[%*]/g, ''); if (v) q = q.ilike(k, `%${v}%`); });
+  if (text) q = q.or(`codice.ilike.%${text}%,descrizione.ilike.%${text}%,codice_articolo_fornitore.ilike.%${text}%`);
+  ['codice', 'descrizione', 'codice_articolo_fornitore'].forEach(k => { const v = (colF[k] || '').trim().replace(/[%*]/g, ''); if (v) q = q.ilike(k, `%${v}%`); });
   if (colF.fornitore) q = q.eq('fornitore', colF.fornitore);
+  if (colF.famiglia) q = q.eq('famiglia', colF.famiglia);
   if (colF.unita_misura) q = q.eq('unita_misura', colF.unita_misura);
   if (!$('cObs').checked) q = q.eq('obsoleto', false);
   if ($('cNoPrice').checked) q = q.is('prezzo_acquisto', null);
@@ -259,15 +279,15 @@ async function load() {
   total = count || 0;
   $('empty').textContent = 'Nessun articolo trovato.';
   $('empty').classList.toggle('hidden', total > 0);
-  $('rows').innerHTML = (data || []).map(r => `
-    <tr data-id="${r.id}" class="${r.obsoleto ? 'obs' : ''}">
-      <td>${esc(r.codice)}${r.obsoleto ? '<span class="badge">obsoleto</span>' : ''}</td>
-      <td title="${esc(r.descrizione)}">${esc(r.descrizione)}</td>
-      <td>${esc(r.famiglia)}</td><td>${esc(r.fornitore)}</td><td>${esc(r.unita_misura)}</td>
-      <td class="num">${eur(r.prezzo_acquisto)}</td>
-      <td class="num">${Number(r.sconto_unico) > 0 ? pct(r.sconto_unico) : ''}</td>
-      <td class="num">${eur(r.prezzo_vendita)}</td>
-    </tr>`).join('');
+  const cell = (c, r) => {
+    if (c.k === 'codice') return esc(r.codice) + (r.obsoleto ? '<span class="badge">obsoleto</span>' : '');
+    if (c.k === 'prezzo_acquisto' || c.k === 'prezzo_vendita') return eur(r[c.k]);
+    if (c.k === 'sconto_unico') return Number(r.sconto_unico) > 0 ? pct(r.sconto_unico) : '';
+    if (['lotto_economico', 'lotto_minimo_vendita', 'unita_per_confezione'].includes(c.k)) return num(r[c.k], 3);
+    return esc(r[c.k]);
+  };
+  $('rows').innerHTML = (data || []).map(r => `<tr data-id="${r.id}" class="${r.obsoleto ? 'obs' : ''}">` +
+    COLS.map(c => `<td class="${c.num ? 'num ' : ''}${c.cls || ''}" ${c.k === 'descrizione' ? `title="${esc(r.descrizione)}"` : ''}>${cell(c, r)}</td>`).join('') + '</tr>').join('');
   const from = total ? page * PAGE + 1 : 0, to = Math.min(total, (page + 1) * PAGE);
   const label = `${from}–${to} di ${total.toLocaleString('it-IT')} articoli`;
   $('count').textContent = label; $('count2').textContent = label;
@@ -289,24 +309,28 @@ applyWidths();
 
 /* ---------- scheda articolo ---------- */
 function dl(pairs) {
-  const rows = pairs.filter(([, v]) => v !== '' && v !== null && v !== undefined);
-  return rows.length ? '<dl>' + rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('') + '</dl>' : '<span class="who">—</span>';
+  const rows = pairs.filter(([, v, force]) => force || (v !== '' && v !== null && v !== undefined));
+  return rows.length ? '<dl>' + rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v === '' || v === null || v === undefined ? '—' : esc(v)}</dd>`).join('') + '</dl>' : '<span class="who">—</span>';
 }
 
+let currentId = null, currentSist = [];
+
 async function openArticle(id) {
+  currentId = id;
   $('veil').classList.remove('hidden'); $('drawer').classList.remove('hidden');
   $('drawerBody').innerHTML = '<p class="who">Caricamento…</p>';
   const [art, hist, sist] = await Promise.all([
     sb.from('v_articoli').select('*').eq('id', id).single(),
     sb.from('storico_prezzi').select('data_modifica,campo,valore_precedente,valore_nuovo').eq('articolo_id', id).order('data_modifica', { ascending: false }).limit(50),
-    sb.from('articoli_sistemi').select('sistemi(nome,gruppo)').eq('articolo_id', id)
+    sb.from('articoli_sistemi').select('sistema_id, sistemi(id,nome,gruppo)').eq('articolo_id', id)
   ]);
   if (art.error) { $('drawerBody').innerHTML = '<p class="err">Errore: ' + esc(art.error.message) + '</p>'; return; }
   const a = art.data;
-  const sistemi = (sist.data || []).map(x => x.sistemi).filter(Boolean);
-  const chips = (g) => sistemi.filter(s => s.gruppo === g).map(s => `<span class="chip">${esc(s.nome)}</span>`).join('');
+  currentSist = (sist.data || []).map(x => x.sistemi).filter(Boolean);
   const h = hist.data || [];
   const personalizzato = a.ricarico_personalizzato !== null && a.ricarico_personalizzato !== undefined;
+  const ricEff = a.coefficiente_effettivo === null || a.coefficiente_effettivo === undefined ? '' :
+    pct(Number(a.coefficiente_effettivo) - 1) + ' (coefficiente ' + num(a.coefficiente_effettivo, 3) + ')';
   $('drawerBody').innerHTML = `
     <h2>${esc(a.codice)}${a.obsoleto ? '<span class="badge">obsoleto</span>' : ''}</h2>
     <div class="sub">${esc(a.descrizione)}</div>
@@ -317,7 +341,7 @@ async function openArticle(id) {
       ['Unità di misura', a.unita_misura], ['Lotto economico', num(a.lotto_economico)], ['Lotto minimo di vendita', num(a.lotto_minimo_vendita)],
       ['Unità per confezione', num(a.unita_per_confezione)], ['Lunghezza barra', num(a.lunghezza_barra)]])}</div>
     <div class="sec"><h3>Acquisto</h3>${dl([
-      ['Fornitore', a.fornitore], ['Codice fornitore', a.codice_fornitore], ['Codice articolo fornitore', a.codice_articolo_fornitore],
+      ['Fornitore', a.fornitore], ['Codice fornitore', a.codice_fornitore], ['Codice articolo fornitore', a.codice_articolo_fornitore, true],
       ['Origine del prezzo', ({listino_fornitore:'Listino fornitore', netto_dedicato:'Netto dedicato', manuale:'Manuale'})[a.origine_prezzo] || ''],
       ['Prezzo di acquisto', a.prezzo_acquisto === null ? 'non presente' : eur(a.prezzo_acquisto) + ' €'],
       ['Sconti a cascata', [a.sconto_base, a.sconto_extra1, a.sconto_extra2, a.sconto_extra3].filter(x => Number(x) > 0).map(pct).join(' + ')],
@@ -327,17 +351,69 @@ async function openArticle(id) {
     <div class="sec"><h3>Vendita</h3>${dl([
       ['Prezzo di vendita', a.prezzo_vendita === null ? 'non presente' : eur(a.prezzo_vendita) + ' €'],
       ['Calcolo standard', a.prezzo_calcolato === null ? '' : eur(a.prezzo_calcolato) + ' €'],
-      ['Coefficiente effettivo', num(a.coefficiente_effettivo, 3)],
+      ['Ricarico effettivo', ricEff],
       ['Ricarico personalizzato', personalizzato ? pct(a.ricarico_personalizzato) : ''],
       ['Attrezzatura', a.attrezzatura], ['Ammortamento', a.ammortamento === null ? '' : eur(a.ammortamento) + ' €'],
       ['Ricarico su ammortamento', Number(a.ricarico_ammortamento) > 0 ? pct(a.ricarico_ammortamento) : '']])}</div>
     <div class="sec"><h3>Note</h3>${dl([['Note', a.note], ['Note acquisto', a.note_acquisto]])}</div>
-    <div class="sec"><h3>Categorie</h3><div class="chips">${chips('categoria') || '<span class="who">—</span>'}</div></div>
-    <div class="sec"><h3>Sotto-famiglie compatibili</h3><div class="chips">${chips('sottofamiglia') || '<span class="who">—</span>'}</div></div>
+    <div class="sec" id="compat"></div>
     <div class="sec"><h3>Storico prezzi</h3>${h.length ? `<table class="hist"><thead><tr><th>Data</th><th>Prezzo</th><th class="num">Prima</th><th class="num">Dopo</th></tr></thead><tbody>${
       h.map(x => `<tr><td>${dt(x.data_modifica)}</td><td>${x.campo === 'prezzo_acquisto' ? 'Acquisto' : 'Vendita'}</td><td class="num">${eur(x.valore_precedente)}</td><td class="num">${eur(x.valore_nuovo)}</td></tr>`).join('')
     }</tbody></table>` : '<span class="who">Nessuna variazione registrata.</span>'}</div>`;
+  renderCompat();
 }
+
+/* ---------- compatibilità (categorie e sotto-famiglie) ---------- */
+function renderCompat() {
+  const chips = (g) => currentSist.filter(s => s.gruppo === g).map(s => `<span class="chip">${esc(s.nome)}</span>`).join('') || '<span class="who">—</span>';
+  $('compat').innerHTML = `
+    <h3>Categorie${isAdmin ? '<button class="link" data-act="edit-compat">Modifica</button>' : ''}</h3><div class="chips">${chips('categoria')}</div>
+    <h3 style="margin-top:14px">Sotto-famiglie compatibili (linee di sistema)</h3><div class="chips">${chips('sottofamiglia')}</div>`;
+}
+
+async function editCompat() {
+  if (!sistemiAll) {
+    const { data, error } = await sb.from('sistemi').select('id,nome,gruppo').order('nome');
+    if (error) { alert('Errore: ' + error.message); return; }
+    sistemiAll = data;
+  }
+  const have = new Set(currentSist.map(s => s.id));
+  const group = (g, title) => `<h4>${title}</h4>` + sistemiAll.filter(s => s.gruppo === g).map(s =>
+    `<label class="ck"><input type="checkbox" data-sid="${s.id}" ${have.has(s.id) ? 'checked' : ''}> ${esc(s.nome)}</label>`).join('');
+  $('compat').innerHTML = `<h3>Modifica compatibilità</h3><div class="editbox">
+    ${group('categoria', 'Categorie')}${group('sottofamiglia', 'Sotto-famiglie (linee di sistema)')}
+    <h4>Aggiungi una nuova linea (non ancora in elenco)</h4>
+    <div class="row"><input type="text" id="newSist" placeholder="es. Eku Nuova Linea"></div>
+    <div class="row"><button class="btn" data-act="save-compat">Salva</button><button class="btn" data-act="cancel-compat">Annulla</button><span class="err" id="compatErr"></span></div></div>`;
+}
+
+async function saveCompat() {
+  const btns = document.querySelectorAll('#compat .btn'); btns.forEach(b => b.disabled = true);
+  const err = (m) => { $('compatErr').textContent = m; btns.forEach(b => b.disabled = false); };
+  const have = new Set(currentSist.map(s => s.id));
+  const want = new Set([...document.querySelectorAll('#compat input[data-sid]:checked')].map(i => Number(i.dataset.sid)));
+  const nuovo = $('newSist').value.trim().replace(/\s+/g, ' ');
+  if (nuovo) {
+    const esiste = sistemiAll.find(s => s.gruppo === 'sottofamiglia' && s.nome.toLowerCase() === nuovo.toLowerCase());
+    if (esiste) want.add(esiste.id);
+    else {
+      const ins = await sb.from('sistemi').insert({ nome: nuovo, gruppo: 'sottofamiglia' }).select('id,nome,gruppo').single();
+      if (ins.error) return err('Errore: ' + ins.error.message);
+      sistemiAll.push(ins.data); want.add(ins.data.id);
+    }
+  }
+  const toDel = [...have].filter(x => !want.has(x)), toAdd = [...want].filter(x => !have.has(x));
+  if (toDel.length) { const d = await sb.from('articoli_sistemi').delete().eq('articolo_id', currentId).in('sistema_id', toDel); if (d.error) return err('Errore: ' + d.error.message); }
+  if (toAdd.length) { const i = await sb.from('articoli_sistemi').insert(toAdd.map(sid => ({ articolo_id: Number(currentId), sistema_id: sid }))); if (i.error) return err('Errore: ' + i.error.message); }
+  await openArticle(currentId);
+}
+
+$('drawer').addEventListener('click', (e) => {
+  const act = e.target.dataset?.act; if (!act) return;
+  if (act === 'edit-compat') editCompat();
+  if (act === 'save-compat') saveCompat();
+  if (act === 'cancel-compat') renderCompat();
+});
 function closeDrawer() { $('veil').classList.add('hidden'); $('drawer').classList.add('hidden'); }
 $('closeDrawer').addEventListener('click', closeDrawer);
 $('veil').addEventListener('click', closeDrawer);
